@@ -17,18 +17,17 @@ transformed data {
 	real rx2[N2];
 	
 	N = N1 + N2;
-	for (n in 1:N1) x[n] = x1[n];
-	for (n in 1:N2) x[N1 + n] = x2[n];
+	x = append_row(x1, x2);
 	
-	for (n in 1:N) rx[n] = x[n];
-	for (n in 1:N1) rx1[n] = x1[n];
-	for (n in 1:N2) rx2[n] = x2[n];
+	rx = to_array_1d(x);
+	rx1 = to_array_1d(x1);
+	rx2 = to_array_1d(x2);
 }
 parameters {
 	vector[N1] y_tilde1;
 	real<lower=0> eta_sq;
 	real<lower=1> inv_rho;
-	real<lower=1e-6> sigma_sq;
+	real<lower=0> sigma_sq;
 	real mu_0;
 	real mu_b;
 	real<lower=0> NB_phi_inv;
@@ -61,7 +60,8 @@ model {
 	mu_b ~ normal(0, 0.2);
 	
 	// Negative-binomial prior
-	// For neg_binomial_2, phi^-1 controls the overdispersion.  phi^-1 ~ 0 reduces to the poisson.  phi^-1 = 1 represents variance = mu+mu^2
+	// For neg_binomial_2, phi^-1 controls the overdispersion.  
+	// phi^-1 ~ 0 reduces to the poisson.  phi^-1 = 1 represents variance = mu+mu^2
 	NB_phi_inv ~ cauchy(0, 5);
 	
 	// Generate non-centered parameterization
@@ -70,6 +70,7 @@ model {
 	// Likelihood
 	z1 ~ neg_binomial_2_log(y1, inv(NB_phi_inv));
 }
+
 generated quantities {
 	vector[N1] y1;
 	vector[N2] y2;
@@ -86,7 +87,7 @@ generated quantities {
 		for (n in 1:N) Sigma[n,n] = Sigma[n,n] + sigma_sq;
 		
 		for (n in 1:N1) y_tilde[n] = y_tilde1[n];
-        for (n in (N1 + 1):N) y_tilde[n] = normal_rng(0,1);
+		for (n in (N1 + 1):N) y_tilde[n] = normal_rng(0,1);
 		
 		// Decompose
 		L = cholesky_decompose(Sigma);
@@ -94,7 +95,7 @@ generated quantities {
 
 		for (n in 1:N1) y1[n] = y[n];
 		for (n in 1:N2) y2[n] = y[N1+n];
-		
+				
 		for (n in 1:N) z_rep[n] = neg_binomial_2_log_rng(y[n], inv(NB_phi_inv));
 	}
 }
